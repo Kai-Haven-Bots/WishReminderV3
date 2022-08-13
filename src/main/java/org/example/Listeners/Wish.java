@@ -7,77 +7,67 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.Main;
 
 import java.awt.*;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 public class Wish extends ListenerAdapter {
-
+        Map<String, Thread> timers = new HashMap<>();
     @Override
     public void onMessageReceived(MessageReceivedEvent e){
         if(e.getChannel().getType().equals(ChannelType.PRIVATE)) return;
         String[] args = e.getMessage().getContentRaw().split(" ");
-        switch (args[0]){
-            case ".wish":
-            case ".Wish":
-                EmbedBuilder wishBuilder = new EmbedBuilder()
-                        .setColor(Color.BLACK);
-                wishBuilder.setTitle("Reminder set!");
-                wishBuilder.setDescription("**wish reminder set!** \n" +
-                        "**Don't forget to do** `.wish` **in** <#969147973210607626> \n" +
-                        "**we will remind you soon!**");
-                e.getMessage().replyEmbeds(wishBuilder.build())
-                        .mentionRepliedUser(false)
-                        .queue();
+        String userId = e.getAuthor().getId();
+        switch (args[0].toLowerCase(Locale.ROOT)){
+            case ".set":
+            if(timers.containsKey(userId)){
+                e.getMessage().reply("`A timer is already running! No need to reset it!, please do .stop to end the timer`").queue();
+                return;
+            }
+                Runnable runnable = () -> {
 
-                Timer wishTimer = new Timer();
-                wishTimer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        EmbedBuilder wishReminder = new EmbedBuilder();
+                    EmbedBuilder wishBuilder = new EmbedBuilder()
+                            .setColor(Color.BLACK);
+                    wishBuilder.setTitle("Reminder set!");
+                    wishBuilder.setDescription("**.wish / .work reminder set!** \n" +
+                            "**Don't forget to do** `.wish! / .work!` **in** <#969147973210607626> \n" +
+                            "**we will remind you every one hour!**");
+                    e.getMessage().replyEmbeds(wishBuilder.build())
+                            .mentionRepliedUser(false)
+                            .queue();
 
-                        wishReminder.setTitle("Time for .wish!");
-                        wishReminder.setColor(Color.WHITE);
-                        wishReminder.setDescription("**goto** <#969147973210607626> **and do** `.wish` \n" +
-                                "**Don't forget to set timer back!**");
-                        e.getMessage().replyEmbeds(wishReminder.build())
-                                .mentionRepliedUser(true)
-                                .queue();
-                        Main.builder.openPrivateChannelById(e.getAuthor().getId()).flatMap(privateChannel -> privateChannel.sendMessageEmbeds(wishReminder.build())).queue();
-                    }
-                }, 3600000);
+                    Timer wishTimer = new Timer();
+                    wishTimer.scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            EmbedBuilder wishReminder = new EmbedBuilder();
+
+                            wishReminder.setTitle("Time for .wish! / .work!");
+                            wishReminder.setColor(Color.WHITE);
+                            wishReminder.setDescription("**goto** <#969147973210607626> **and do** `.wish` \n" +
+                                    "**you can stop the timer by** `.stop`");
+                            e.getMessage().replyEmbeds(wishReminder.build())
+                                    .mentionRepliedUser(true)
+                                    .queue();
+                        }
+                    }, 3600000,3600000 );
+                };
+                Thread thread = new Thread(runnable, userId);
+                thread.start();
+                timers.put(userId, thread);
                 break;
 
-            case ".work":
-            case ".Work":
-                EmbedBuilder workBuilder = new EmbedBuilder()
-                        .setColor(Color.BLACK);
-                workBuilder.setTitle("Reminder set!");
-                workBuilder.setDescription("**work reminder set!** \n" +
-                        "**Don't forget to do** `.work` **in** <#969147973210607626> \n" +
-                        "**we will remind you soon!**");
-                e.getMessage().replyEmbeds(workBuilder.build())
-                        .mentionRepliedUser(false)
-                        .queue();
-
-                Timer workTimer = new Timer();
-                workTimer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        EmbedBuilder workReminder = new EmbedBuilder();
-                        workReminder.setTitle("Time for .work!");
-                        workReminder.setColor(Color.WHITE);
-                        workReminder.setDescription("**goto** <#969147973210607626> **and do** `.work` \n" +
-                                "**Don't forget to set timer back!**");
-                        e.getMessage().replyEmbeds(workReminder.build())
-                                .mentionRepliedUser(true)
-                                .queue();
-                        Main.builder.openPrivateChannelById(e.getAuthor().getId()).flatMap(privateChannel -> privateChannel.sendMessageEmbeds(workReminder.build())).queue();
-                    }
-                }, 3600000);
+            case ".stop":
+                if(timers.containsKey(userId)){
+                    timers.get(userId).interrupt();
+                    timers.remove(userId);
+                    e.getMessage().replyEmbeds(new EmbedBuilder()
+                            .setTitle("Successfully cancelled the timer!")
+                            .build()).queue();
+                }else{
+                    e.getMessage().reply("`you don't have a timer running!`").queue();
+                    return;
+                }
                 break;
-                
-            
-                
+
             case ".drink":
             case ".Drink":
                 EmbedBuilder drinkBuilder = new EmbedBuilder();
@@ -101,7 +91,7 @@ public class Wish extends ListenerAdapter {
                         e.getMessage().replyEmbeds(drinkReminder.build())
                                 .mentionRepliedUser(true)
                                 .queue();
-                        Main.builder.openPrivateChannelById(e.getAuthor().getId()).flatMap(privateChannel -> privateChannel.sendMessageEmbeds(drinkReminder.build())).queue();
+                        Main.builder.openPrivateChannelById(userId).flatMap(privateChannel -> privateChannel.sendMessageEmbeds(drinkReminder.build())).queue();
                     }
                 }, 2400000);
                 break;
@@ -136,8 +126,8 @@ public class Wish extends ListenerAdapter {
                 EmbedBuilder helpBuilder = new EmbedBuilder();
                 helpBuilder.setTitle("Help");
                 helpBuilder.addField("Commands: ", "" +
-                        "`.wish` **set reminder for using** `.wish` :timer: \n" +
-                        "`.work` **set reminder for using** `.work` :timer: \n" +
+                        "`.set` **set reminder for using** `.set` :timer: \n" +
+                        "`.stop` **stop reminder by using** `.stop` :timer: \n" +
                         "`.drink` **set reminder to drink water by** `drink` :sweat_drops: \n" +
                         "ㅤㅤㅤㅤㅤㅤㅤㅤ\n" +
                         "`froggy` **bully froggy with** `froggy` :stuck_out_tongue_closed_eyes: \n" +
@@ -163,4 +153,5 @@ public class Wish extends ListenerAdapter {
                 break;
         }
     }
+
 }
